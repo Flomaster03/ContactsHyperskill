@@ -1,0 +1,267 @@
+package contacts
+
+import java.time.Clock
+
+fun main() {
+    menu()
+}
+
+fun menu() {
+    while (true) {
+        println("\nEnter action (add, list, search, count, exit): ")
+        when (readln()) {
+            "add" -> add()
+            "list" -> info()
+            "search" -> search()
+            "count" -> println("The Phone Book has ${ContactsList.countOfContacts()} records.\n")
+            "exit" -> break
+        }
+    }
+}
+
+//добавление контакта
+fun add() {
+    println("\nEnter the type (person, organization): ")
+    if (readln() == "person") Person().addContact() else Organization().addContact()
+}
+
+//информация о контактах, выбор контакта для подробной информации о нем
+fun info() {
+    ContactsList.printList()
+    println("\nEnter action ([number], back): ")
+    val input = readln()
+    if (input == "back") {
+        println()
+        return
+    } else {
+        val contact = ContactsList.getContact(input.toInt() - 1)
+        println(contact.infoOfContact)
+        edit(input.toInt() - 1)
+    }
+}
+
+//поиск контакта по набору символов и операции с найденными номерами
+fun search() {
+    while (true) {
+        println("Enter search query: ")
+        val inputStr = readln().lowercase().toRegex()
+        val listOfResults = mutableListOf<Map<Int, String>>()
+        for (i in 0 until ContactsList.countOfContacts()) {
+            val contact = ContactsList.getContact(i)
+            if (contact.infoOfContact.lowercase().contains(inputStr)) listOfResults.add((mapOf(i to contact.toString())))
+        }
+        println("Found ${listOfResults.size} results:")
+        for (j in listOfResults.indices) {
+            println("${j + 1}. ${listOfResults[j].values.joinToString("\n")}")
+        }
+        println("\nEnter action ([number], back, again): ")
+        when (val input = readln()) {
+            "again" -> continue
+            "back" -> break
+            else -> {
+                val contact = ContactsList.getContact(input.toInt() - 1)
+                println(contact.infoOfContact)
+                edit(input.toInt() - 1)
+                break
+            }
+        }
+    }
+}
+
+//редактирование одного контакта
+fun edit(index: Int) {
+    while (true) {
+        println("\nEnter action (edit, delete, menu): ")
+        val input = readln()
+        when (input) {
+            "menu" -> break
+            "delete" -> {
+                ContactsList.remove(index)
+                break
+            }
+
+            "edit" -> {
+                val contact = ContactsList.getContact(index)
+                println(contact.contactFields)
+                val inputCategory = readln()
+                println("Enter $inputCategory: ")
+                val inputValue = readln()
+                contact.editContact(index, inputCategory, inputValue)
+                println("Saved")
+                println(contact.infoOfContact)
+            }
+        }
+    }
+}
+
+//проверка правильности введенного номера телефона
+fun checkNumber(number: String): Boolean = number.matches(
+    "((^\\+?\\(?[A-Za-z0-9]+\\)?([- ][A-Za-z0-9]{2,})?)|(^\\+?[A-Za-z0-9]+([- ]\\(?[A-Za-z0-9]{2,}\\)?)?))([- ][A-Za-z0-9]{2,})*".toRegex()
+)
+
+//проверка правильности даты рождения
+fun checkBirthDay(date: String): Boolean =
+    date.matches("""^((19\d\d)|(20[0-2][0-4]))-((1[0-2])|(0[1-9]))-((0[1-9])|([12][0-9])|(3[01]))""".toRegex())
+
+//получение текущего времени системы и конвертация его в строку
+fun getTime(): String {
+    val date = Clock.systemDefaultZone()
+    return date.instant().toString().split(":").toMutableList().also { it.removeAt(2) }.joinToString(":")
+}
+
+object ContactsList {
+    private val phoneBook = mutableListOf<Contact>()
+
+    //количество контактов в книжке
+    fun countOfContacts(): Int = phoneBook.size
+
+    //добавление готовой записи в книжку
+    fun add(contact: Contact): MutableList<Contact> {
+        phoneBook.add(contact)
+        return phoneBook
+    }
+
+    //удаление контакта
+    fun remove(index: Int): MutableList<Contact> {
+        phoneBook.removeAt(index)
+        return phoneBook
+    }
+
+    //получение контакта по индексу
+    fun getContact(index: Int): Contact = phoneBook[index]
+
+    //замена контакта по индексу
+    fun changeContact(index: Int, contact: Contact) {
+        phoneBook[index] = contact
+    }
+
+    //печать списка контактов
+    fun printList() {
+        for (i in phoneBook.indices) {
+            println("${i + 1}. ${phoneBook[i]}")
+        }
+    }
+}
+
+abstract class Contact {
+    abstract val name: String
+    abstract val number: String
+    val timeCreated = getTime()
+    var timeLastEdit = getTime()
+    abstract val contactFields: String
+    abstract val infoOfContact: String
+
+    abstract fun addContact()
+    abstract fun editContact(index: Int, category: String, newValue: String)
+}
+
+class Organization : Contact() {
+    override var name: String = ""
+    private var address: String = ""
+    override var number: String = ""
+        set(value) {
+            field = if (checkNumber(value)) value else {
+                println("Wrong number format!")
+                "[no number]"
+            }
+        }
+    override val contactFields = "Select a field (name, address, number): "
+    override val infoOfContact: String
+        get() {
+            return "Organization name: $name\nAddress: $address\nNumber: $number\nTime created: $timeCreated\nTime last edit: $timeLastEdit"
+        }
+
+    override fun addContact() {
+        val organization = Organization()
+        println("Enter the organization name: ")
+        organization.name = readln()
+        println("Enter the address: ")
+        organization.address = readln()
+        println("Enter the number: ")
+        organization.number = readln()
+        ContactsList.add(organization)
+        println("The record added.")
+    }
+
+    override fun editContact(index: Int, category: String, newValue: String) {
+        val changedContact = ContactsList.getContact(index) as Organization
+        when (category) {
+            "name" -> changedContact.name = newValue
+            "address" -> changedContact.address = newValue
+            "number" -> changedContact.number = newValue
+        }
+        changedContact.timeLastEdit = getTime()
+        ContactsList.changeContact(index, changedContact)
+    }
+
+    override fun toString(): String {
+        return name
+    }
+}
+
+class Person : Contact() {
+    override var name: String = ""
+    private var surname: String = ""
+    private var birthDate: String = ""
+        set(value) {
+            field = if (checkBirthDay(value)) value else {
+                println("Bad birth date!")
+                "[no data]"
+            }
+        }
+    private var gender: String = ""
+        set(value) {
+            field = if (value == "M" || value == "F") value else {
+                println("Bad gender!")
+                "[no data]"
+            }
+        }
+    override var number: String = ""
+        set(value) {
+            field = if (checkNumber(value)) value else {
+                println("Wrong number format!")
+                "[no number]"
+            }
+        }
+    override val contactFields = "Select a field (name, surname, birth, gender, number): "
+    override val infoOfContact: String
+        get() {
+            return "Name: $name\nSurname: $surname\nBirth date: $birthDate\nGender: $gender\n" +
+                    "Number: $number\nTime created: $timeCreated\nTime last edit: $timeLastEdit"
+        }
+
+    override fun addContact() {
+        val person = Person()
+        println("Enter the name: ")
+        person.name = readln()
+        println("Enter the surname: ")
+        person.surname = readln()
+        println("Enter the birth date: ")
+        person.birthDate = readln()
+        println("Enter the gender (M, F): ")
+        person.gender = readln()
+        println("Enter the number: ")
+        person.number = readln()
+        ContactsList.add(person)
+        println("The record added.")
+
+    }
+
+    override fun editContact(index: Int, category: String, newValue: String) {
+        val changedContact = ContactsList.getContact(index) as Person
+        when (category) {
+            "name" -> changedContact.name = newValue
+            "surname" -> changedContact.surname = newValue
+            "birthDate" -> changedContact.birthDate = newValue
+            "gender" -> changedContact.gender = newValue
+            "number" -> changedContact.number = newValue
+        }
+        changedContact.timeLastEdit = getTime()
+        ContactsList.changeContact(index, changedContact)
+    }
+
+    override fun toString(): String {
+        return "$name $surname"
+    }
+}
+

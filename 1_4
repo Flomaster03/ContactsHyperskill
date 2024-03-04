@@ -1,0 +1,25 @@
+package contacts
+
+fun main() {
+
+    println("Enter the name of the person:")
+    val name = readln()
+    println("Enter the surname of the person:")
+    val surname = readln()
+    println("Enter the number:")
+    val number = readln()
+    val contact = Contact(name, surname, number)
+    ContactsList.phoneBook.add(contact)
+    println("\nA record created!\n" +
+            "A Phone Book with a single record created!")
+}
+
+object ContactsList {
+    val phoneBook = mutableListOf<Contact>()
+}
+
+data class Contact(
+    val name: String,
+    val surname: String,
+    val number: String
+)
